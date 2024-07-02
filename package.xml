@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>data_collector</name>
-  <version>0.0.0</version>
+  <version>0.0.1</version>
   <description>The data_collector package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
@@ -32,7 +32,7 @@
   <!-- Dependencies can be catkin packages or system dependencies -->
   <!-- Examples: -->
   <!-- Use depend as a shortcut for packages that are both build and exec dependencies -->
-  <!--   <depend>roscpp</depend> -->
+  <depend>sensor_msgs</depend>
   <!--   Note that this is equivalent to the following: -->
   <!--   <build_depend>roscpp</build_depend> -->
   <!--   <exec_depend>roscpp</exec_depend> -->
@@ -53,8 +53,11 @@
   <build_depend>roscpp</build_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
+  <build_depend>dvs_msgs</build_depend>
+
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>roscpp</exec_depend>
+  <exec_depend>dvs_msgs</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   gazebo_plugins
   gazebo_ros
   cv_bridge
+  dvs_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,9 +109,9 @@ find_package(gazebo REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
-#  LIBRARIES data_collector
-#  CATKIN_DEPENDS geometry_msgs roscpp
-#  DEPENDS system_lib
+ CATKIN_DEPENDS 
+  dvs_msgs
+  sensor_msgs
 )
 
 ###########

@@ -7,26 +7,34 @@ namespace gazebo
   GZ_REGISTER_MODEL_PLUGIN(DataCollector)
   void DataCollector::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
   {
+
     if (!_model)
       gzerr << "Invalid sensor pointer." << std::endl;
+    if (_sdf->HasElement("enable") && _sdf->GetElement("enable")->Get<bool>())
+    {
 
-    std::string event_sub, image_sub, label_dir;
-    DataCollector::SdfParse(_sdf, image_sub, event_sub, this->output_dir, label_dir);
-    DataCollector::dirCheck(this->output_dir, this->output_dir);
+      std::string event_sub, image_sub, label_dir;
+      DataCollector::SdfParse(_sdf, image_sub, event_sub, this->output_dir, label_dir);
+      DataCollector::dirCheck(this->output_dir, this->output_dir);
 
-    // DataCollector::loadLabel(label_dir, 0, 0);
+      // DataCollector::loadLabel(label_dir, 0, 0);
 
-    this->f_pose.open(this->output_dir + "/pose.csv");
-    this->f_events.open(this->output_dir + "/events.csv");
+      this->f_pose.open(this->output_dir + "/pose.csv");
+      this->f_events.open(this->output_dir + "/events.csv");
 
-    gzmsg << "[DataCollector] Subscribing to: " << image_sub << event_sub << std::endl;
-    this->image_sub_ = this->node_handle_.subscribe(image_sub, 100, &DataCollector::ImageCallback, this);
-    this->event_sub_ = this->node_handle_.subscribe(event_sub, 100, &DataCollector::EventCallback, this);
+      gzmsg << "[DataCollector] Subscribing to: " << image_sub << event_sub << std::endl;
+      this->image_sub_ = this->node_handle_.subscribe(image_sub, 100, &DataCollector::ImageCallback, this);
+      this->event_sub_ = this->node_handle_.subscribe(event_sub, 100, &DataCollector::EventCallback, this);
 
-    this->model = _model;
-    // 订阅更新事件
-    this->updateConnection = event::Events::ConnectWorldUpdateBegin(
-        std::bind(&DataCollector::OnUpdate, this));
+      this->model = _model;
+      // 订阅更新事件
+      this->updateConnection = event::Events::ConnectWorldUpdateBegin(
+          std::bind(&DataCollector::OnUpdate, this));
+    }
+    else
+    {
+      ROS_INFO("[DataCollector] Enable fail. This plugin will not be enabled.");
+    }
   }
 
   // 在每个仿真步骤中调用

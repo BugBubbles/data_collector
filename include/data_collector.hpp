@@ -25,12 +25,10 @@ namespace gazebo
     void OnUpdate();
     void EventCallback(const dvs_msgs::EventArray::ConstPtr &event_msgs);
     void ImageCallback(const sensor_msgs::Image::ConstPtr &image_msgs);
-    void loadLabel(std::string label_dir, int row, int col, int row_num = 3, int col_num = 5);
 
   private:
     void SdfParse(const sdf::ElementPtr _sdf, std::string &image_sub, std::string &event_sub, std::string &output_dir, std::string &label_dir);
     void dirCheck(std::string dir, std::string &output_dir);
-    void getLabelImage(ignition::math::Pose3d &pose, cv::Mat &img);
     physics::ModelPtr model;
     event::ConnectionPtr updateConnection;
     std::vector<double> X, Y, R, Lat;
@@ -45,5 +43,4 @@ namespace gazebo
     std::ofstream f_info, f_pose, f_events;
   };
   void split(std::string str, char del, std::vector<double> &res);
-  // void world2camera(ignition::math::Pose3d &pose, );
 }

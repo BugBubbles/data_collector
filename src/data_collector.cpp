@@ -8,20 +8,25 @@ namespace gazebo
   {
 
     if (!_model)
-      gzerr << "Invalid sensor pointer." << std::endl;
+    {
+      ROS_ERROR("Invalid sensor pointer.");
+      return;
+    }
     if (_sdf->HasElement("enable") && _sdf->GetElement("enable")->Get<bool>())
     {
 
-      std::string event_sub, image_sub, label_dir;
-      DataCollector::SdfParse(_sdf, image_sub, event_sub, this->output_dir, label_dir);
+      std::string event_sub, camera_sub, label_dir;
+      DataCollector::SdfParse(_sdf, camera_sub, event_sub, this->output_dir, label_dir);
       DataCollector::dirCheck(this->output_dir, this->output_dir);
 
       this->f_pose.open(this->output_dir + "/pose.csv");
       this->f_events.open(this->output_dir + "/events.csv");
+      this->f_info.open(this->output_dir + "/info.txt");
 
-      gzmsg << "[DataCollector] Subscribing to: " << image_sub << event_sub << std::endl;
-      this->image_sub_ = this->node_handle_.subscribe(image_sub, 100, &DataCollector::ImageCallback, this);
+      gzmsg << "[DataCollector] Subscribing to: " << camera_sub << event_sub << std::endl;
+      this->image_sub_ = this->node_handle_.subscribe(camera_sub + "/image_raw", 100, &DataCollector::ImageCallback, this);
       this->event_sub_ = this->node_handle_.subscribe(event_sub, 100, &DataCollector::EventCallback, this);
+      this->info_sub_ = this->node_handle_.subscribe(camera_sub + "/camera_info", 100, &DataCollector::InfoCallback, this);
 
       this->model = _model;
       // 订阅更新事件
@@ -30,7 +35,7 @@ namespace gazebo
     }
     else
     {
-      ROS_INFO("[DataCollector] Enable fail. This plugin will not be enabled.");
+      ROS_WARN("[DataCollector] Enable fail. This plugin will not be enabled.");
     }
   }
 
@@ -64,20 +69,41 @@ namespace gazebo
       std::stringstream name;
       name << this->output_dir << "/images/" << image_msgs->header.stamp.toSec() << ".png";
       cv::imwrite(name.str(), image);
+      if (this->is_write == false && this->info_write == false)
+      {
+        this->info_write = true;
+      }
     }
     catch (cv_bridge::Exception &e)
     {
       gzerr << "cv_bridge exception: " << e.what() << std::endl;
     }
   }
-  void DataCollector::SdfParse(const sdf::ElementPtr _sdf, std::string &image_sub, std::string &event_sub, std::string &output_dir, std::string &label_dir)
+  void DataCollector::InfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs)
+  {
+    if (this->info_write == true && this->is_write == false)
+    {
+      this->f_info << "P: ";
+      for (const auto &p : info_msgs->P)
+      {
+        this->f_info << p << ",";
+      }
+      this->f_info << std::endl;
+      this->f_info << "Height: " << info_msgs->height << std::endl;
+      this->f_info << "Width: " << info_msgs->width << std::endl;
+      this->is_write = true;
+      this->info_write = false;
+      this->f_info.close();
+    }
+  }
+  void DataCollector::SdfParse(const sdf::ElementPtr _sdf, std::string &camera_sub, std::string &event_sub, std::string &output_dir, std::string &label_dir)
   {
     // parse the sdf files
-    if (_sdf->HasElement("image_sub"))
-      image_sub = _sdf->GetElement("image_sub")->Get<std::string>();
+    if (_sdf->HasElement("camera_sub"))
+      camera_sub = _sdf->GetElement("camera_sub")->Get<std::string>();
     else
     {
-      gzerr << "[DataCollector] Please specify a image_sub." << std::endl;
+      gzerr << "[DataCollector] Please specify a camera_sub." << std::endl;
       std::exit(EXIT_FAILURE);
     }
     if (_sdf->HasElement("event_sub"))

@@ -10,10 +10,10 @@
 ```xml
     <plugin name='data_collector' filename='libdata_collector.so'>
       <enable>true</enable>
-      <image_sub>/iris/usb_cam/image_raw</image_sub>
+      <camera_sub>/iris/usb_cam</camera_sub>
       <event_sub>/dvs/events</event_sub>
       <output_dir>data_collected</output_dir>
       <label_dir>Data/labels/circle</label_dir>
     </plugin>
 ```
-其中`<image_sub>`标签内填写的内容是无人机发布的图像订阅话题，`<event_sub>`填写的是无人机发布的事件流订阅话题（**注意不是事件图像**），`<output_dir>`填写的是保存的数据位置，如果不加根目录符号`/`，则目录将自动保存在以`~/.ros`开头的目录中，`<label_dir>`是用于读取当前已知的陨石坑标注数据的目录。
+其中`<camera_sub>`标签内填写的内容是无人机发布的相机话题，`<event_sub>`填写的是无人机发布的事件流订阅话题（**注意不是事件图像**），`<output_dir>`填写的是保存的数据位置，如果不加根目录符号`/`，则目录将自动保存在以`~/.ros`开头的目录中，`<label_dir>`是用于读取当前已知的陨石坑标注数据的目录。

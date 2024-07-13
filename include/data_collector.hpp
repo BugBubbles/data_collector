@@ -25,6 +25,7 @@ namespace gazebo
     void OnUpdate();
     void EventCallback(const dvs_msgs::EventArray::ConstPtr &event_msgs);
     void ImageCallback(const sensor_msgs::Image::ConstPtr &image_msgs);
+    void InfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs);
 
   private:
     void SdfParse(const sdf::ElementPtr _sdf, std::string &image_sub, std::string &event_sub, std::string &output_dir, std::string &label_dir);
@@ -37,10 +38,11 @@ namespace gazebo
     double scale_y = 184320 / 1737.4 / 2 / PI;
 
   protected:
-    ros::Subscriber image_sub_, event_sub_;
+    ros::Subscriber image_sub_, event_sub_, info_sub_;
     ros::NodeHandle node_handle_;
     std::string output_dir;
     std::ofstream f_info, f_pose, f_events;
+    bool info_write = false, is_write = false;
   };
   void split(std::string str, char del, std::vector<double> &res);
 }

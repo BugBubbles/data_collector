@@ -15,7 +15,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <fstream>
-#define PI 3.1415926585
+
 namespace gazebo
 {
   class DataCollector : public gazebo::ModelPlugin
@@ -25,24 +25,20 @@ namespace gazebo
     void OnUpdate();
     void EventCallback(const dvs_msgs::EventArray::ConstPtr &event_msgs);
     void ImageCallback(const sensor_msgs::Image::ConstPtr &image_msgs);
-    void InfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs);
+    void CameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs);
+    void EventInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs);
 
   private:
-    void SdfParse(const sdf::ElementPtr _sdf, std::string &image_sub, std::string &event_sub, std::string &output_dir, std::string &label_dir);
-    void dirCheck(std::string dir, std::string &output_dir);
-    physics::ModelPtr model;
+    void SdfParse(const sdf::ElementPtr _sdf, std::string &image_sub, std::string &event_sub, std::string &output_dir);
+    void dirCheck();
+    physics::ModelPtr model_;
     event::ConnectionPtr updateConnection;
-    std::vector<double> X, Y, R, Lat;
-    long long int data_len;
-    double scale_x = 61440 / 1737.4 / 2 * 3 / PI;
-    double scale_y = 184320 / 1737.4 / 2 / PI;
 
   protected:
-    ros::Subscriber image_sub_, event_sub_, info_sub_;
+    ros::Subscriber image_sub_, event_sub_, info_cam_sub_, info_evt_sub_;
     ros::NodeHandle node_handle_;
-    std::string output_dir;
+    std::string output_dir_;
     std::ofstream f_info, f_pose, f_events;
-    bool info_write = false, is_write = false;
+    bool camera_write_ = false, event_write_ = false;
   };
-  void split(std::string str, char del, std::vector<double> &res);
 }

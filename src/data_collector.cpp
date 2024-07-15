@@ -1,4 +1,3 @@
-#include <cmath>
 #include "data_collector.hpp"
 namespace gazebo
 {
@@ -15,20 +14,23 @@ namespace gazebo
     if (_sdf->HasElement("enable") && _sdf->GetElement("enable")->Get<bool>())
     {
 
-      std::string event_sub, camera_sub, label_dir;
-      DataCollector::SdfParse(_sdf, camera_sub, event_sub, this->output_dir, label_dir);
-      DataCollector::dirCheck(this->output_dir, this->output_dir);
+      std::string event_sub, camera_sub;
+      DataCollector::SdfParse(_sdf, camera_sub, event_sub, output_dir_);
+      DataCollector::dirCheck();
 
-      this->f_pose.open(this->output_dir + "/pose.csv");
-      this->f_events.open(this->output_dir + "/events.csv");
-      this->f_info.open(this->output_dir + "/info.txt");
+      this->f_pose.open(output_dir_ + "/pose.csv");
+      this->f_events.open(output_dir_ + "/events.csv");
+      this->f_info.open(output_dir_ + "/config.yaml");
 
-      gzmsg << "[DataCollector] Subscribing to: " << camera_sub << event_sub << std::endl;
+      ROS_INFO_STREAM("[DataCollector] Subscribing to: " << camera_sub << " and " << event_sub);
       this->image_sub_ = this->node_handle_.subscribe(camera_sub + "/image_raw", 100, &DataCollector::ImageCallback, this);
-      this->event_sub_ = this->node_handle_.subscribe(event_sub, 100, &DataCollector::EventCallback, this);
-      this->info_sub_ = this->node_handle_.subscribe(camera_sub + "/camera_info", 100, &DataCollector::InfoCallback, this);
-
-      this->model = _model;
+      this->event_sub_ = this->node_handle_.subscribe(event_sub + "/events", 100, &DataCollector::EventCallback, this);
+      this->info_cam_sub_ = this->node_handle_.subscribe(camera_sub + "/camera_info", 100, &DataCollector::CameraInfoCallback, this);
+      this->info_evt_sub_ = this->node_handle_.subscribe(event_sub + "/camera_info", 100, &DataCollector::EventInfoCallback, this);
+      // write the headlines
+      this->f_events << "x,y,t,p" << std::endl;
+      model_ = _model;
+      this->f_pose << "t,x,y,z,pitch,yaw,roll" << std::endl;
       // 订阅更新事件
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
           std::bind(&DataCollector::OnUpdate, this));
@@ -43,11 +45,11 @@ namespace gazebo
   void DataCollector::OnUpdate()
   {
     // 获取模型的位置
-    auto pos = this->model->WorldPose().Pos();
-    auto ori = this->model->WorldPose().Rot();
+    auto pos = model_->WorldPose().Pos();
+    auto ori = model_->WorldPose().Rot();
     auto time = ros::Time::now();
     this->f_pose << time.toSec() << "," << pos.X() << "," << pos.Y() << "," << pos.Z() << "," << ori.Pitch() << "," << ori.Yaw() << "," << ori.Roll() << std::endl;
-    // this->model->SetLinearVel(ignition::math::Vector3d(1, 0, 0));
+    // model_->SetLinearVel(ignition::math::Vector3d(1, 0, 0));
   }
   void DataCollector::EventCallback(const dvs_msgs::EventArray::ConstPtr &event_msgs)
   {
@@ -55,7 +57,7 @@ namespace gazebo
     auto events = event_msgs->events;
     for (const auto &event : events)
     {
-      this->f_events << "x: " << event.x << ", y: " << event.y << ", t: " << event.ts.toSec() << ", p: " << event.polarity << std::endl;
+      this->f_events << event.x << ',' << event.y << ',' << event.ts.toSec() << ',' << static_cast<int>(event.polarity) << std::endl;
     }
   }
   void DataCollector::ImageCallback(const sensor_msgs::Image::ConstPtr &image_msgs)
@@ -66,94 +68,103 @@ namespace gazebo
       cv_ptr = cv_bridge::toCvCopy(image_msgs, sensor_msgs::image_encodings::BGR8);
       cv::Mat image = cv_ptr->image;
 
-      std::stringstream name;
-      name << this->output_dir << "/images/" << image_msgs->header.stamp.toSec() << ".png";
-      cv::imwrite(name.str(), image);
-      if (this->is_write == false && this->info_write == false)
+      std::string name = output_dir_ + "/images/" + std::to_string(image_msgs->header.stamp.toSec()) + ".png";
+      cv::imwrite(name, image);
+      if (event_write_ == false && camera_write_ == false)
       {
-        this->info_write = true;
+        camera_write_ = true;
       }
     }
     catch (cv_bridge::Exception &e)
     {
-      gzerr << "cv_bridge exception: " << e.what() << std::endl;
+      ROS_ERROR_STREAM("cv_bridge exception: " << e.what());
     }
   }
-  void DataCollector::InfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs)
+  void DataCollector::CameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs)
   {
-    if (this->info_write == true && this->is_write == false)
+    // 从消息中提取相机信息
+    if (event_write_ == false && camera_write_ == true)
     {
-      this->f_info << "P: ";
+      this->f_info << "camera:" << std::endl;
+      char camera_yaml = ' ';
+      this->f_info << camera_yaml << "P: [";
       for (const auto &p : info_msgs->P)
       {
         this->f_info << p << ",";
       }
-      this->f_info << std::endl;
-      this->f_info << "Height: " << info_msgs->height << std::endl;
-      this->f_info << "Width: " << info_msgs->width << std::endl;
-      this->is_write = true;
-      this->info_write = false;
-      this->f_info.close();
+      this->f_info << "]" << std::endl;
+
+      this->f_info << camera_yaml << "height: " << info_msgs->height << std::endl;
+      this->f_info << camera_yaml << "width: " << info_msgs->width << std::endl;
+      event_write_ = true;
+      camera_write_ = false;
+      info_cam_sub_.shutdown();
     }
   }
-  void DataCollector::SdfParse(const sdf::ElementPtr _sdf, std::string &camera_sub, std::string &event_sub, std::string &output_dir, std::string &label_dir)
+
+  void DataCollector::EventInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &info_msgs)
+  {
+    if (event_write_ == true && camera_write_ == false)
+    {
+      this->f_info << "event_camera:" << std::endl;
+      char camera_yaml = ' ';
+      this->f_info << camera_yaml << "P: [";
+      for (const auto &p : info_msgs->P)
+      {
+        this->f_info << p << ",";
+      }
+      this->f_info << "]" << std::endl;
+
+      this->f_info << camera_yaml << "height: " << info_msgs->height << std::endl;
+      this->f_info << camera_yaml << "width: " << info_msgs->width << std::endl;
+      event_write_ = true;
+      camera_write_ = true;
+      this->f_info.close();
+      info_evt_sub_.shutdown();
+    }
+  }
+  void DataCollector::SdfParse(const sdf::ElementPtr _sdf, std::string &camera_sub, std::string &event_sub, std::string &output_dir)
   {
     // parse the sdf files
-    if (_sdf->HasElement("camera_sub"))
-      camera_sub = _sdf->GetElement("camera_sub")->Get<std::string>();
+    if (_sdf->HasElement("cameraTopic"))
+      camera_sub = _sdf->GetElement("cameraTopic")->Get<std::string>();
     else
     {
-      gzerr << "[DataCollector] Please specify a camera_sub." << std::endl;
+      ROS_ERROR("[DataCollector] Please specify a camera topic.");
       std::exit(EXIT_FAILURE);
     }
-    if (_sdf->HasElement("event_sub"))
-      event_sub = _sdf->GetElement("event_sub")->Get<std::string>();
+    if (_sdf->HasElement("eventTopic"))
+      event_sub = _sdf->GetElement("eventTopic")->Get<std::string>();
     else
     {
-      gzerr << "[DataCollector] Please specify a event_sub." << std::endl;
+      ROS_ERROR("[DataCollector] Please specify a event topic.");
       std::exit(EXIT_FAILURE);
     }
-    if (_sdf->HasElement("label_dir"))
-      label_dir = _sdf->GetElement("label_dir")->Get<std::string>();
+    if (_sdf->HasElement("outputDirectory"))
+      output_dir = _sdf->GetElement("outputDirectory")->Get<std::string>();
     else
     {
-      gzerr << "[DataCollector] Please specify a label_dir." << std::endl;
-      std::exit(EXIT_FAILURE);
-    }
-    if (_sdf->HasElement("output_dir"))
-      output_dir = _sdf->GetElement("output_dir")->Get<std::string>();
-    else
-    {
-      gzwarn << "[DataCollector] Implicit output directory, default output directory was set '~/.ros/data'." << std::endl;
+      ROS_WARN("[DataCollector] Implicit output directory, default is set '~/.ros/data'.");
       output_dir = "data";
     }
   }
-  void DataCollector::dirCheck(std::string dir, std::string &output_dir)
+  void DataCollector::dirCheck()
   {
-    if (!std::filesystem::exists(dir))
+    if (!std::filesystem::exists(output_dir_))
     {
-      std::filesystem::create_directories(dir);
+      std::filesystem::create_directories(output_dir_);
     }
     else
     {
-      ROS_INFO("%s exists, skipping creating.", dir.c_str());
+      ROS_INFO("%s exists, skipping creating.", output_dir_.c_str());
     }
     auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);
 
     std::stringstream ss;
     ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d_%H-%M-%S");
-    output_dir = dir + "/" + ss.str();
-    std::filesystem::create_directories(output_dir);
-    std::filesystem::create_directories(output_dir + "/images");
-  }
-  void split(std::string str, char del, std::vector<double> &res)
-  {
-    std::stringstream ss(str);
-    std::string tmp;
-    while (getline(ss, tmp, del))
-    {
-      res.push_back(std::stod(tmp));
-    }
+    output_dir_ = output_dir_ + "/" + ss.str();
+    std::filesystem::create_directories(output_dir_);
+    std::filesystem::create_directories(output_dir_ + "/images");
   }
 }

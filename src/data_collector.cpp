@@ -30,7 +30,7 @@ namespace gazebo
       // write the headlines
       this->f_events << "x,y,t,p" << std::endl;
       model_ = _model;
-      this->f_pose << "t,x,y,z,pitch,yaw,roll" << std::endl;
+      this->f_pose << "t,x,y,z,qx,qy,qz,qw" << std::endl;
       // 订阅更新事件
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
           std::bind(&DataCollector::OnUpdate, this));
@@ -48,7 +48,7 @@ namespace gazebo
     auto pos = model_->WorldPose().Pos();
     auto ori = model_->WorldPose().Rot();
     auto time = ros::Time::now();
-    this->f_pose << time.toSec() << "," << pos.X() << "," << pos.Y() << "," << pos.Z() << "," << ori.Pitch() << "," << ori.Yaw() << "," << ori.Roll() << std::endl;
+    this->f_pose << time.toSec() << "," << pos.X() << "," << pos.Y() << "," << pos.Z() << "," << ori.X() << "," << ori.Y() << "," << ori.Z() << "," << ori.W() << std::endl;
     // model_->SetLinearVel(ignition::math::Vector3d(1, 0, 0));
   }
   void DataCollector::EventCallback(const dvs_msgs::EventArray::ConstPtr &event_msgs)
